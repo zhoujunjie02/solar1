@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head><meta content="default-src 'none'; style-src * 'unsafe-inline'; script-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; media-src * data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'" http-equiv="Content-Security-Policy"/>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>太阳高度角计算与可视化工具</title>
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/0915/3.4.17.js"></script>
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/js/all.min.js"></script>
+<link href="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/css/fontawesome.min.css" rel="stylesheet"/>
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/cdn-staticfile-net/echarts/5.4.3/echarts.min.js"></script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+        
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+        }
+        input[type=range]:focus {
+            outline: none; 
+        }
+
+        /* Canvas container */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen flex flex-col">
+<header class="bg-slate-800 border-b border-slate-700 p-4 shadow-md sticky top-0 z-50">
+<div class="max-w-7xl mx-auto flex items-center justify-between">
+<div class="flex items-center gap-3">
+<i class="fa-solid fa-sun text-yellow-400 text-2xl animate-pulse"></i>
+<h1 class="text-xl font-bold tracking-wide text-white">太阳高度角计算与可视化</h1>
+</div>
+<div class="text-xs text-slate-400 hidden sm:block">
+                专业天文计算工具 | 2D/3D 实时轨迹
+            </div>
+</div>
+</header>
+<main class="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+<aside class="lg:col-span-3 space-y-6">
+<div class="bg-slate-800 p-5 rounded-xl shadow-lg border border-slate-700">
+<h2 class="text-lg font-semibold mb-4 text-blue-400 border-b border-slate-700 pb-2">
+<i class="fa-solid fa-sliders mr-2"></i>参数设置
+                </h2>
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="block text-xs text-slate-400 mb-1">纬度</label>
+<div class="flex items-center bg-slate-700 rounded">
+<input class="w-full bg-transparent text-center text-sm p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" id="latInput" max="90" min="-90" step="0.0001" type="number" value="39.9042"/>
+<button class="px-2 text-xs font-bold text-blue-300 hover:text-white transition" id="latDirBtn">N</button>
+</div>
+</div>
+<div>
+<label class="block text-xs text-slate-400 mb-1">经度</label>
+<div class="flex items-center bg-slate-700 rounded">
+<input class="w-full bg-transparent text-center text-sm p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" id="lonInput" max="180" min="-180" step="0.0001" type="number" value="116.4074"/>
+<button class="px-2 text-xs font-bold text-blue-300 hover:text-white transition" id="lonDirBtn">E</button>
+</div>
+</div>
+</div>
+<button class="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm text-slate-300 transition flex items-center justify-center gap-2" id="geoBtn">
+<i class="fa-solid fa-location-crosshairs"></i> 使用当前位置
+                    </button>
+<div class="grid grid-cols-3 gap-1">
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="39.9042" data-lon="116.4074" data-tz="8">北京</button>
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="31.2304" data-lon="121.4737" data-tz="8">上海</button>
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="35.6762" data-lon="139.6503" data-tz="9">东京</button>
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="51.5074" data-lon="-0.1278" data-tz="0">伦敦</button>
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="40.7128" data-lon="-74.0060" data-tz="-5">纽约</button>
+<button class="city-btn py-1 bg-slate-700 hover:bg-blue-600 rounded text-xs transition" data-lat="-33.8688" data-lon="151.2093" data-tz="10">悉尼</button>
+</div>
+</div>
+<div class="space-y-4 mt-6 pt-4 border-t border-slate-700">
+<div>
+<label class="block text-xs text-slate-400 mb-1">日期</label>
+<input class="w-full bg-slate-700 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" id="dateInput" type="date"/>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div>
+<label class="block text-xs text-slate-400 mb-1">时</label>
+<input class="w-full bg-slate-700 rounded p-2 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" id="hourInput" max="23" min="0" type="number"/>
+</div>
+<div>
+<label class="block text-xs text-slate-400 mb-1">分</label>
+<input class="w-full bg-slate-700 rounded p-2 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" id="minuteInput" max="59" min="0" type="number"/>
+</div>
+<div>
+<label class="block text-xs text-slate-400 mb-1">秒</label>
+<input class="w-full bg-slate-700 rounded p-2 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" id="secondInput" max="59" min="0" type="number"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<input class="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-600 focus:ring-2" id="realTimeCheck" type="checkbox"/>
+<label class="text-sm text-slate-300 select-none cursor-pointer" for="realTimeCheck">锁定当前时间</label>
+</div>
+<div>
+<label class="block text-xs text-slate-400 mb-1">时区 (UTC)</label>
+<select class="w-full bg-slate-700 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" id="timezoneInput">
+</select>
+</div>
+</div>
+</div>
+<div class="bg-slate-800 p-5 rounded-xl shadow-lg border border-slate-700">
+<h2 class="text-lg font-semibold mb-3 text-green-400 border-b border-slate-700 pb-2">
+<i class="fa-solid fa-clock mr-2"></i>今日概况
+                </h2>
+<div class="grid grid-cols-2 gap-4 text-sm">
+<div>
+<div class="text-slate-400 text-xs">日出</div>
+<div class="font-mono text-white font-bold" id="sunriseVal">--:--</div>
+</div>
+<div>
+<div class="text-slate-400 text-xs">日落</div>
+<div class="font-mono text-white font-bold" id="sunsetVal">--:--</div>
+</div>
+<div>
+<div class="text-slate-400 text-xs">正午时刻</div>
+<div class="font-mono text-yellow-400 font-bold" id="noonVal">--:--</div>
+</div>
+<div>
+<div class="text-slate-400 text-xs">昼长</div>
+<div class="font-mono text-blue-300 font-bold" id="dayLengthVal">--h --m</div>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-700">
+<div class="text-slate-400 text-xs">当前状态</div>
+<div class="font-bold text-lg text-white mt-1" id="sunStatusVal">计算中...</div>
+</div>
+</div>
+</aside>
+<section class="lg:col-span-9 space-y-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-slate-800 p-4 rounded-xl shadow border border-slate-700 relative overflow-hidden group">
+<div class="absolute right-2 top-2 text-slate-600 group-hover:text-yellow-500 transition"><i class="fa-solid fa-arrow-up"></i></div>
+<div class="text-slate-400 text-xs uppercase tracking-wider">太阳高度角</div>
+<div class="text-2xl font-bold text-white mt-1"><span id="altVal">0.00</span><span class="text-sm text-slate-500 ml-1">°</span></div>
+<div class="text-xs text-slate-500 mt-1">Solar Altitude</div>
+</div>
+<div class="bg-slate-800 p-4 rounded-xl shadow border border-slate-700 relative overflow-hidden group">
+<div class="absolute right-2 top-2 text-slate-600 group-hover:text-blue-500 transition"><i class="fa-regular fa-compass"></i></div>
+<div class="text-slate-400 text-xs uppercase tracking-wider">太阳方位角</div>
+<div class="text-2xl font-bold text-white mt-1"><span id="azVal">0.00</span><span class="text-sm text-slate-500 ml-1">°</span></div>
+<div class="text-xs text-slate-500 mt-1">Solar Azimuth (N=0)</div>
+</div>
+<div class="bg-slate-800 p-4 rounded-xl shadow border border-slate-700 relative overflow-hidden group">
+<div class="absolute right-2 top-2 text-slate-600 group-hover:text-purple-500 transition"><i class="fa-solid fa-globe"></i></div>
+<div class="text-slate-400 text-xs uppercase tracking-wider">赤纬角</div>
+<div class="text-2xl font-bold text-white mt-1"><span id="decVal">0.00</span><span class="text-sm text-slate-500 ml-1">°</span></div>
+<div class="text-xs text-slate-500 mt-1">Declination</div>
+</div>
+<div class="bg-slate-800 p-4 rounded-xl shadow border border-slate-700 relative overflow-hidden group">
+<div class="absolute right-2 top-2 text-slate-600 group-hover:text-green-500 transition"><i class="fa-solid fa-hourglass-half"></i></div>
+<div class="text-slate-400 text-xs uppercase tracking-wider">时角</div>
+<div class="text-2xl font-bold text-white mt-1"><span id="haVal">0.00</span><span class="text-sm text-slate-500 ml-1">°</span></div>
+<div class="text-xs text-slate-500 mt-1">Hour Angle</div>
+</div>
+</div>
+<div class="bg-slate-800 p-1 rounded-xl shadow-lg border border-slate-700">
+<div class="flex justify-between items-center px-4 py-2 border-b border-slate-700">
+<h3 class="font-semibold text-slate-200"><i class="fa-solid fa-chart-area mr-2 text-blue-400"></i>2D 太阳轨迹剖面图</h3>
+<span class="text-xs text-slate-500">横轴:方位角 | 纵轴:高度角</span>
+</div>
+<div class="canvas-container h-[350px] bg-slate-900">
+<canvas id="mainCanvas"></canvas>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 bg-slate-800 p-1 rounded-xl shadow-lg border border-slate-700">
+<div class="flex justify-between items-center px-4 py-2 border-b border-slate-700">
+<h3 class="font-semibold text-slate-200"><i class="fa-solid fa-chart-line mr-2 text-green-400"></i>全天高度角变化</h3>
+</div>
+<div class="h-[300px] w-full" id="echartsContainer"></div>
+</div>
+<div class="bg-slate-800 p-1 rounded-xl shadow-lg border border-slate-700">
+<div class="flex justify-between items-center px-4 py-2 border-b border-slate-700">
+<h3 class="font-semibold text-slate-200"><i class="fa-solid fa-cube mr-2 text-purple-400"></i>实时天球视位</h3>
+</div>
+<div class="canvas-container h-[300px] bg-slate-900 flex justify-center items-center">
+<canvas id="pseudo3DCanvas"></canvas>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-slate-800 border-t border-slate-700 p-4 text-center text-slate-500 text-xs mt-6">
+<p>© 2026 Solar Position Tool. All calculations are based on standard astronomical algorithms.</p>
+</footer>
+<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" id="toastContainer"></div>
+<script>
+        // --- 1. Core Astronomical Algorithms (Provided) ---
+
+        // 1. 计算年积日 n
+        function getDayOfYear(year, month, day) {
+            const date = new Date(year, month - 1, day);
+            const start = new Date(year, 0, 0);
+            return Math.floor((date - start) / (1000 * 60 * 60 * 24));
+        }
+
+        // 2. 计算儒略日 JD
+        function getJulianDate(year, month, day, hour, minute, second, timezoneOffset) {
+            const utcHour = hour - timezoneOffset;
+            let y = year, m = month;
+            if (m <= 2) { y -= 1; m += 12; }
+            const A = Math.floor(y / 100);
+            const B = 2 - A + Math.floor(A / 4);
+            const dayFraction = (utcHour + minute/60 + second/3600) / 24;
+            return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + B - 1524.5 + dayFraction;
+        }
+
+        // 3. 计算儒略世纪数 T
+        function getJulianCentury(jd) { return (jd - 2451545.0) / 36525; }
+
+        // 4. 太阳几何平均黄经 L0
+        function getSolarGeomMeanLongitude(T) {
+            let L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360;
+            return L0 < 0 ? L0 + 360 : L0;
+        }
+
+        // 5. 太阳几何平均近点角 M
+        function getSolarGeomMeanAnomaly(T) { return 357.52911 + 35999.05029 * T - 0.0001537 * T * T; }
+
+        // 6. 地球轨道偏心率 e
+        function getEarthEccentricity(T) { return 0.016708634 - 0.000042037 * T - 0.0000001267 * T * T; }
+
+        // 7. 太阳中心差 C
+        function getSunEquationOfCenter(T, M) {
+            const Mrad = M * Math.PI / 180;
+            return Math.sin(Mrad) * (1.914602 - 0.004817 * T - 0.000014 * T * T)
+                 + Math.sin(2 * Mrad) * (0.019993 - 0.000101 * T)
+                 + Math.sin(3 * Mrad) * 0.000289;
+        }
+
+        // 8. 太阳真黄经 lambda
+        function getSolarTrueLongitude(L0, C) { return (L0 + C) % 360; }
+
+        // 9. 计算黄赤交角 obliq
+        function getObliquityCorrection(T) {
+            return 23 + (26 + ((21.448 - 46.815 * T - 0.00059 * T * T + 0.001813 * T * T * T) / 60)) / 60;
+        }
+
+        // 10. 太阳赤纬角 delta
+        function getSolarDeclination(obliq, sunTrueLong) {
+            const sunTrueLongRad = sunTrueLong * Math.PI / 180;
+            const obliqRad = obliq * Math.PI / 180;
+            return Math.asin(Math.sin(obliqRad) * Math.sin(sunTrueLongRad)) * 180 / Math.PI;
+        }
+
+        // 11. 方程时差 EoT (分钟)
+        function getEquationOfTime(T, L0, M, e, obliq) {
+            const y = Math.tan((obliq * Math.PI / 180) / 2) ** 2;
+            const radL0 = L0 * Math.PI / 180;
+            const radM = M * Math.PI / 180;
+            const Etime = y * Math.sin(2 * radL0) 
+                        - 2 * e * Math.sin(radM) 
+                        + 4 * e * y * Math.sin(radM) * Math.cos(2 * radL0)
+                        - 0.5 * y * y * Math.sin(4 * radL0)
+                        - 1.25 * e * e * Math.sin(2 * radM);
+            return Etime * 180 / Math.PI * 4;
+        }
+
+        // 12. 时角 H (度)
+        function getHourAngle(hour, minute, second, longitude, timezoneOffset, equationOfTime) {
+            const solarTimeMinutes = hour * 60 + minute + second / 60 + 4 * longitude - 60 * timezoneOffset + equationOfTime;
+            return (solarTimeMinutes / 4) - 180;
+        }
+
+        // 13. 太阳高度角 (度)
+        function getSolarElevation(latitude, declination, hourAngle) {
+            const latRad = latitude * Math.PI / 180;
+            const decRad = declination * Math.PI / 180;
+            const haRad = hourAngle * Math.PI / 180;
+            const sinAlt = Math.sin(latRad) * Math.sin(decRad) + Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
+            return Math.asin(Math.max(-1, Math.min(1, sinAlt))) * 180 / Math.PI;
+        }
+
+        // 14. 太阳方位角 (度，正北为0°顺时针)
+        function getSolarAzimuth(latitude, declination, hourAngle, elevation) {
+            const latRad = latitude * Math.PI / 180;
+            const decRad = declination * Math.PI / 180;
+            const elevRad = elevation * Math.PI / 180;
+            const cosAz = (Math.sin(decRad) - Math.sin(elevRad) * Math.sin(latRad)) / (Math.cos(elevRad) * Math.cos(latRad));
+            let azimuth = Math.acos(Math.max(-1, Math.min(1, cosAz))) * 180 / Math.PI;
+            if (hourAngle > 0 || Math.sin(hourAngle * Math.PI / 180) > 0) {
+                azimuth = 360 - azimuth;
+            }
+            return azimuth;
+        }
+
+        // --- 2. Application Logic & State ---
+
+        const state = {
+            lat: 39.9042,
+            lon: 116.4074,
+            date: new Date(),
+            hour: 14,
+            minute: 0,
+            second: 24,
+            timezone: 8, // UTC+8
+            isRealTime: false,
+            results: {
+                alt: 0,
+                az: 0,
+                dec: 0,
+                ha: 0,
+                sunrise: null,
+                sunset: null,
+                noon: null,
+                dayLength: 0,
+                status: ''
+            }
+        };
+
+        let chartInstance = null;
+        let realTimeInterval = null;
+
+        // --- 3. Helper Functions ---
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const colors = type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+            toast.className = `${colors} text-white px-4 py-2 rounded shadow-lg text-sm transition-opacity duration-300 opacity-0 transform translate-y-2`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', 'translate-y-2');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function formatTime(date) {
+            return date.toTimeString().split(' ')[0];
+        }
+
+        function formatHM(minutes) {
+            const h = Math.floor(minutes / 60);
+            const m = Math.floor(minutes % 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
+        function getSunStatus(alt) {
+            if (alt > 0) return '白天';
+            if (alt > -6) return '民用晨昏蒙影';
+            if (alt > -12) return '航海晨昏蒙影';
+            if (alt > -18) return '天文晨昏蒙影';
+            return '夜晚';
+        }
+
+        // --- 4. Calculation Engine ---
+
+        function calculateAll() {
+            const { lat, lon, date, hour, minute, second, timezone } = state;
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+
+            // 1. Basic Params
+            const n = getDayOfYear(year, month, day);
+            const jd = getJulianDate(year, month, day, hour, minute, second, timezone);
+            const T = getJulianCentury(jd);
+            const L0 = getSolarGeomMeanLongitude(T);
+            const M = getSolarGeomMeanAnomaly(T);
+            const e = getEarthEccentricity(T);
+            const C = getSunEquationOfCenter(T, M);
+            const sunTrueLong = getSolarTrueLongitude(L0, C);
+            const obliq = getObliquityCorrection(T);
+            const declination = getSolarDeclination(obliq, sunTrueLong);
+            const eot = getEquationOfTime(T, L0, M, e, obliq);
+            const ha = getHourAngle(hour, minute, second, lon, timezone, eot);
+            const elevation = getSolarElevation(lat, declination, ha);
+            const azimuth = getSolarAzimuth(lat, declination, ha, elevation);
+
+            // Update State Results
+            state.results.alt = elevation;
+            state.results.az = azimuth;
+            state.results.dec = declination;
+            state.results.ha = ha;
+            state.results.status = getSunStatus(elevation);
+
+            // Calculate Sunrise/Sunset/Noon for the day
+            calculateDayEvents(lat, lon, timezone, year, month, day, declination, eot);
+
+            // Update UI
+            updateUI();
+            drawMainCanvas();
+            updateChart();
+            drawPseudo3D();
+        }
+
+        function calculateDayEvents(lat, lon, timezone, year, month, day, declination, eotBase) {
+            // Simple iterative search for crossing 0 degrees
+            // We need to recalculate EoT for different times, but for simplicity in this tool, 
+            // we iterate minute by minute using the full calculation chain.
+            
+            let sunrise = null;
+            let sunset = null;
+            let maxAlt = -90;
+            let maxAltTime = null;
+
+            // Scan 0:00 to 23:59
+            for (let h = 0; h < 24; h++) {
+                for (let m = 0; m < 60; m++) {
+                    const jd = getJulianDate(year, month, day, h, m, 0, timezone);
+                    const T = getJulianCentury(jd);
+                    const L0 = getSolarGeomMeanLongitude(T);
+                    const M = getSolarGeomMeanAnomaly(T);
+                    const e = getEarthEccentricity(T);
+                    const C = getSunEquationOfCenter(T, M);
+                    const sunTrueLong = getSolarTrueLongitude(L0, C);
+                    const obliq = getObliquityCorrection(T);
+                    const dec = getSolarDeclination(obliq, sunTrueLong);
+                    const eot = getEquationOfTime(T, L0, M, e, obliq);
+                    const ha = getHourAngle(h, m, 0, lon, timezone, eot);
+                    const alt = getSolarElevation(lat, dec, ha);
+
+                    if (alt > maxAlt) {
+                        maxAlt = alt;
+                        maxAltTime = { h, m };
+                    }
+
+                    // Check crossings
+                    const prevMin = m === 0 ? 59 : m - 1;
+                    const prevH = m === 0 ? (h === 0 ? 23 : h - 1) : h;
+                    
+                    // Recalculate prev minute alt (simplified: assume linear or just re-calc)
+                    const prevJd = getJulianDate(year, month, day, prevH, prevMin, 0, timezone);
+                    const prevT = getJulianCentury(prevJd);
+                    const prevL0 = getSolarGeomMeanLongitude(prevT);
+                    const prevM = getSolarGeomMeanAnomaly(prevT);
+                    const prevE = getEarthEccentricity(prevT);
+                    const prevC = getSunEquationOfCenter(prevT, prevM);
+                    const prevSTL = getSolarTrueLongitude(prevL0, prevC);
+                    const prevOb = getObliquityCorrection(prevT);
+                    const prevDec = getSolarDeclination(prevOb, prevSTL);
+                    const prevEot = getEquationOfTime(prevT, prevL0, prevM, prevE, prevOb);
+                    const prevHa = getHourAngle(prevH, prevMin, 0, lon, timezone, prevEot);
+                    const prevAlt = getSolarElevation(lat, prevDec, prevHa);
+
+                    if (prevAlt < 0 && alt >= 0 && !sunrise) {
+                        sunrise = { h, m };
+                    }
+                    if (prevAlt >= 0 && alt < 0 && !sunset && sunrise) {
+                        sunset = { h, m };
+                    }
+                }
+            }
+
+            // Handle Polar Day/Night
+            if (maxAlt < 0) {
+                state.results.status = "极夜";
+                state.results.sunrise = "--";
+                state.results.sunset = "--";
+                state.results.dayLength = 0;
+            } else if (maxAlt > 0 && !sunrise) {
+                state.results.status = "极昼";
+                state.results.sunrise = "00:00";
+                state.results.sunset = "24:00";
+                state.results.dayLength = 24 * 60;
+            } else {
+                state.results.sunrise = sunrise ? formatHM(sunrise.h * 60 + sunrise.m) : "--:--";
+                state.results.sunset = sunset ? formatHM(sunset.h * 60 + sunset.m) : "--:--";
+                if (sunrise && sunset) {
+                    const riseMins = sunrise.h * 60 + sunrise.m;
+                    const setMins = sunset.h * 60 + sunset.m;
+                    state.results.dayLength = setMins - riseMins;
+                }
+            }
+
+            if (maxAltTime) {
+                state.results.noon = formatHM(maxAltTime.h * 60 + maxAltTime.m);
+                state.results.maxAlt = maxAlt;
+            } else {
+                state.results.noon = "--:--";
+                state.results.maxAlt = 0;
+            }
+        }
+
+        // --- 5. UI Updates ---
+
+        function updateUI() {
+            // Text Values
+            document.getElementById('altVal').textContent = state.results.alt.toFixed(2);
+            document.getElementById('azVal').textContent = state.results.az.toFixed(2);
+            document.getElementById('decVal').textContent = state.results.dec.toFixed(2);
+            document.getElementById('haVal').textContent = state.results.ha.toFixed(2);
+
+            document.getElementById('sunriseVal').textContent = state.results.sunrise;
+            document.getElementById('sunsetVal').textContent = state.results.sunset;
+            document.getElementById('noonVal').textContent = state.results.noon;
+            
+            const dlH = Math.floor(state.results.dayLength / 60);
+            const dlM = Math.floor(state.results.dayLength % 60);
+            document.getElementById('dayLengthVal').textContent = `${dlH}h ${dlM}m`;
+
+            const statusEl = document.getElementById('sunStatusVal');
+            statusEl.textContent = state.results.status;
+            
+            // Status Color
+            statusEl.className = "font-bold text-lg mt-1 " + 
+                (state.results.status.includes('白') ? "text-yellow-400" : 
+                 state.results.status.includes('极昼') ? "text-yellow-300" :
+                 state.results.status.includes('极夜') ? "text-slate-400" : "text-indigo-400");
+
+            // Sync Inputs if RealTime is active
+            if (state.isRealTime) {
+                const now = new Date();
+                // Only update if second changed to avoid jitter
+                if (now.getSeconds() !== state.second) {
+                    state.hour = now.getHours();
+                    state.minute = now.getMinutes();
+                    state.second = now.getSeconds();
+                    document.getElementById('hourInput').value = state.hour;
+                    document.getElementById('minuteInput').value = state.minute;
+                    document.getElementById('secondInput').value = state.second;
+                }
+            }
+        }
+
+        // --- 6. Visualization: 2D Canvas ---
+
+        function drawMainCanvas() {
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 40;
+
+            // Clear
+            ctx.clearRect(0, 0, w, h);
+
+            // Sky Gradient Background
+            const grad = ctx.createLinearGradient(0, h - padding, 0, padding);
+            grad.addColorStop(0, '#1e1e1e'); // Ground
+            grad.addColorStop(0.2, '#4a2c2c'); // Horizon reddish
+            grad.addColorStop(0.5, '#1e3a8a'); // Mid blue
+            grad.addColorStop(1, '#0f172a'); // Top dark blue
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Coordinate System
+            // X: Azimuth 0-360 (Left to Right)
+            // Y: Altitude 0-90 (Bottom to Top)
+            const plotW = w - padding * 2;
+            const plotH = h - padding * 2;
+            const originX = padding;
+            const originY = h - padding;
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Horizontal Lines (Altitude)
+            for (let i = 0; i <= 90; i += 15) {
+                const y = originY - (i / 90) * plotH;
+                ctx.beginPath();
+                ctx.moveTo(originX, y);
+                ctx.lineTo(originX + plotW, y);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.fillText(i + '°', 5, y + 3);
+            }
+
+            // Vertical Lines (Azimuth)
+            const azLabels = ['N(0°)', 'E(90°)', 'S(180°)', 'W(270°)', 'N(360°)'];
+            for (let i = 0; i <= 360; i += 45) {
+                const x = originX + (i / 360) * plotW;
+                ctx.beginPath();
+                ctx.moveTo(x, originY);
+                ctx.lineTo(x, originY - plotH);
+                ctx.stroke();
+                if (i % 90 === 0) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.fillText(azLabels[i/90], x - 15, originY + 15);
+                }
+            }
+
+            // Draw Sun Path (Curve)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(253, 224, 71, 0.6)'; // Yellow
+            ctx.lineWidth = 3;
+            
+            let firstPoint = true;
+            // Calculate path for the day
+            const { lat, lon, date, timezone } = state;
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+
+            for (let hour = 0; hour < 24; hour += 0.2) {
+                // Simplified calculation for path drawing
+                const jd = getJulianDate(year, month, day, hour, 0, 0, timezone);
+                const T = getJulianCentury(jd);
+                const L0 = getSolarGeomMeanLongitude(T);
+                const M = getSolarGeomMeanAnomaly(T);
+                const e = getEarthEccentricity(T);
+                const C = getSunEquationOfCenter(T, M);
+                const sunTrueLong = getSolarTrueLongitude(L0, C);
+                const obliq = getObliquityCorrection(T);
+                const dec = getSolarDeclination(obliq, sunTrueLong);
+                const eot = getEquationOfTime(T, L0, M, e, obliq);
+                const ha = getHourAngle(hour, 0, 0, lon, timezone, eot);
+                const alt = getSolarElevation(lat, dec, ha);
+                const az = getSolarAzimuth(lat, dec, ha, alt);
+
+                if (alt > -10) { // Draw slightly below horizon
+                    const x = originX + (az / 360) * plotW;
+                    const y = originY - (alt / 90) * plotH;
+                    
+                    if (firstPoint) {
+                        ctx.moveTo(x, y);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            }
+            ctx.stroke();
+
+            // Draw Current Sun Position
+            const curAz = state.results.az;
+            const curAlt = state.results.alt;
+            
+            // Only draw if above reasonable horizon or slightly below
+            if (curAlt > -20) {
+                const cx = originX + (curAz / 360) * plotW;
+                const cy = originY - (curAlt / 90) * plotH;
+
+                // Projection Line
+                ctx.beginPath();
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx, originY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Sun Icon
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('☀️', cx, cy);
+
+                // Glow
+                const radGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 20);
+                radGrad.addColorStop(0, 'rgba(255, 200, 0, 0.8)');
+                radGrad.addColorStop(1, 'rgba(255, 200, 0, 0)');
+                ctx.fillStyle = radGrad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // --- 7. Visualization: ECharts ---
+
+        function initChart() {
+            const dom = document.getElementById('echartsContainer');
+            chartInstance = echarts.init(dom);
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        return params[0].name + '<br/>' + params[0].seriesName + ': ' + params[0].value.toFixed(2) + '°';
+                    }
+                },
+                grid: { top: 30, right: 20, bottom: 20, left: 40 },
+                xAxis: {
+                    type: 'category',
+                    data: [], // 0-24
+                    axisLine: { lineStyle: { color: '#64748b' } },
+                    axisLabel: { color: '#94a3b8' }
+                },
+                yAxis: {
+                    type: 'value',
+                    min: -90,
+                    max: 90,
+                    axisLine: { lineStyle: { color: '#64748b' } },
+                    splitLine: { lineStyle: { color: '#334155', type: 'dashed' } },
+                    axisLabel: { color: '#94a3b8' }
+                },
+                series: [{
+                    name: '高度角',
+                    type: 'line',
+                    smooth: true,
+                    data: [],
+                    lineStyle: { color: '#facc15', width: 2 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(250, 204, 21, 0.5)' },
+                            { offset: 1, color: 'rgba(250, 204, 21, 0.0)' }
+                        ])
+                    },
+                    markLine: {
+                        symbol: 'none',
+                        data: [{ yAxis: 0, lineStyle: { color: '#ef4444', type: 'solid' } }]
+                    }
+                }]
+            };
+            chartInstance.setOption(option);
+        }
+
+        function updateChart() {
+            if (!chartInstance) return;
+
+            const { lat, lon, date, timezone } = state;
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            
+            const times = [];
+            const values = [];
+            const nowMinutes = state.hour * 60 + state.minute;
+
+            for (let h = 0; h < 24; h++) {
+                for (let m = 0; m < 60; m+=15) { // Step 15 mins for performance
+                    const timeStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+                    times.push(timeStr);
+
+                    const jd = getJulianDate(year, month, day, h, m, 0, timezone);
+                    const T = getJulianCentury(jd);
+                    const L0 = getSolarGeomMeanLongitude(T);
+                    const M = getSolarGeomMeanAnomaly(T);
+                    const e = getEarthEccentricity(T);
+                    const C = getSunEquationOfCenter(T, M);
+                    const sunTrueLong = getSolarTrueLongitude(L0, C);
+                    const obliq = getObliquityCorrection(T);
+                    const dec = getSolarDeclination(obliq, sunTrueLong);
+                    const eot = getEquationOfTime(T, L0, M, e, obliq);
+                    const ha = getHourAngle(h, m, 0, lon, timezone, eot);
+                    const alt = getSolarElevation(lat, dec, ha);
+                    values.push(alt);
+                }
+            }
+
+            // Find current time index for markLine
+            // Approximation for visual marker
+            const currentVal = state.results.alt;
+
+            chartInstance.setOption({
+                xAxis: { data: times },
+                series: [{ 
+                    data: values,
+                    markPoint: {
+                        data: [{ 
+                            value: currentVal.toFixed(1) + '°', 
+                            xAxis: times.length - 1, // Just put it at end or find index
+                            itemStyle: { color: '#fff' }
+                        }]
+                    }
+                }]
+            });
+        }
+
+        // --- 8. Visualization: Pseudo 3D Canvas ---
+
+        function drawPseudo3D() {
+            const canvas = document.getElementById('pseudo3DCanvas');
+            const ctx = canvas.getContext('2d');
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2 + 20; // Shift down slightly
+            const radius = Math.min(w, h) / 2 - 20;
+
+            // Clear
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw Dome (Compass)
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Horizon Line
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, radius, radius * 0.3, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = '#64748b';
+            ctx.stroke();
+
+            // Cardinal Points
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('N', cx, cy - radius);
+            ctx.fillText('S', cx, cy + radius * 0.3); // Perspective
+            ctx.fillText('E', cx + radius, cy);
+            ctx.fillText('W', cx - radius, cy);
+
+            // Draw Sun
+            // Azimuth is angle around center (0 is Top/North)
+            // Altitude is distance from center (0 is edge, 90 is center)
+            // r = radius * (1 - alt/90)
+            
+            const alt = state.results.alt;
+            const az = state.results.az; // 0 = N, 90 = E
+            
+            // Adjust Azimuth for canvas rotation (Canvas 0 is East/Right usually, but we drew N at Top)
+            // Canvas 0 is Right (3 o'clock). 
+            // N is -90deg (Top). E is 0deg. S is 90deg. W is 180deg.
+            // Azimuth: N=0, E=90, S=180, W=270.
+            // Canvas Angle: N=-PI/2, E=0, S=PI/2, W=PI.
+            // Formula: CanvasAngle = (Azimuth - 90) * PI / 180
+            
+            if (alt > -10) {
+                const r = radius * (1 - alt / 90);
+                const rad = (az - 90) * Math.PI / 180;
+                
+                const sx = cx + r * Math.cos(rad);
+                const sy = cy + r * Math.sin(rad) * 0.3; // Flatten Y for perspective
+
+                // Draw Sun
+                ctx.beginPath();
+                ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#facc15';
+                ctx.fill();
+                
+                // Glow
+                ctx.beginPath();
+                ctx.arc(sx, sy, 15, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
+                ctx.fill();
+            }
+        }
+
+        // --- 9. Initialization & Event Listeners ---
+
+        function init() {
+            // Populate Timezone
+            const tzSelect = document.getElementById('timezoneInput');
+            for (let i = -12; i <= 14; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.text = `UTC${i >= 0 ? '+' : ''}${i}`;
+                if (i === 8) opt.selected = true; // Default Beijing
+                tzSelect.appendChild(opt);
+            }
+
+            // Set Initial Date
+            const now = new Date();
+            document.getElementById('dateInput').valueAsDate = now;
+            document.getElementById('hourInput').value = now.getHours();
+            document.getElementById('minuteInput').value = now.getMinutes();
+            document.getElementById('secondInput').value = now.getSeconds();
+
+            // Init Charts
+            initChart();
+
+            // Event Listeners
+            const inputs = ['latInput', 'lonInput', 'dateInput', 'hourInput', 'minuteInput', 'secondInput', 'timezoneInput'];
+            inputs.forEach(id => {
+                document.getElementById(id).addEventListener('input', handleInput);
+                document.getElementById(id).addEventListener('change', handleInput);
+            });
+
+            // Lat/Lon Buttons
+            document.getElementById('latDirBtn').addEventListener('click', () => {
+                const btn = document.getElementById('latDirBtn');
+                const val = parseFloat(document.getElementById('latInput').value) || 0;
+                if (btn.innerText === 'N') {
+                    btn.innerText = 'S';
+                    btn.classList.replace('text-blue-300', 'text-red-300');
+                    document.getElementById('latInput').value = -Math.abs(val);
+                } else {
+                    btn.innerText = 'N';
+                    btn.classList.replace('text-red-300', 'text-blue-300');
+                    document.getElementById('latInput').value = Math.abs(val);
+                }
+                handleInput();
+            });
+
+            document.getElementById('lonDirBtn').addEventListener('click', () => {
+                const btn = document.getElementById('lonDirBtn');
+                const val = parseFloat(document.getElementById('lonInput').value) || 0;
+                if (btn.innerText === 'E') {
+                    btn.innerText = 'W';
+                    btn.classList.replace('text-blue-300', 'text-red-300');
+                    document.getElementById('lonInput').value = -Math.abs(val);
+                } else {
+                    btn.innerText = 'E';
+                    btn.classList.replace('text-red-300', 'text-blue-300');
+                    document.getElementById('lonInput').value = Math.abs(val);
+                }
+                handleInput();
+            });
+
+            // City Buttons
+            document.querySelectorAll('.city-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const lat = parseFloat(e.target.dataset.lat);
+                    const lon = parseFloat(e.target.dataset.lon);
+                    const tz = parseFloat(e.target.dataset.tz);
+                    
+                    // Update UI
+                    document.getElementById('latInput').value = Math.abs(lat);
+                    document.getElementById('latDirBtn').innerText = lat >= 0 ? 'N' : 'S';
+                    document.getElementById('latDirBtn').className = lat >= 0 ? 'px-2 text-xs font-bold text-blue-300 hover:text-white transition' : 'px-2 text-xs font-bold text-red-300 hover:text-white transition';
+
+                    document.getElementById('lonInput').value = Math.abs(lon);
+                    document.getElementById('lonDirBtn').innerText = lon >= 0 ? 'E' : 'W';
+                    document.getElementById('lonDirBtn').className = lon >= 0 ? 'px-2 text-xs font-bold text-blue-300 hover:text-white transition' : 'px-2 text-xs font-bold text-red-300 hover:text-white transition';
+
+                    document.getElementById('timezoneInput').value = tz;
+                    
+                    handleInput();
+                    showToast(`已切换至 ${e.target.innerText}`);
+                });
+            });
+
+            // Geolocation
+            document.getElementById('geoBtn').addEventListener('click', () => {
+                if ("geolocation" in navigator) {
+                    showToast("正在获取位置...", "info");
+                    navigator.geolocation.getCurrentPosition((position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        document.getElementById('latInput').value = Math.abs(lat);
+                        document.getElementById('latDirBtn').innerText = lat >= 0 ? 'N' : 'S';
+                        document.getElementById('latDirBtn').className = lat >= 0 ? 'px-2 text-xs font-bold text-blue-300 hover:text-white transition' : 'px-2 text-xs font-bold text-red-300 hover:text-white transition';
+
+                        document.getElementById('lonInput').value = Math.abs(lon);
+                        document.getElementById('lonDirBtn').innerText = lon >= 0 ? 'E' : 'W';
+                        document.getElementById('lonDirBtn').className = lon >= 0 ? 'px-2 text-xs font-bold text-blue-300 hover:text-white transition' : 'px-2 text-xs font-bold text-red-300 hover:text-white transition';
+
+                        // Try to guess timezone from browser
+                        const offset = -new Date().getTimezoneOffset() / 60;
+                        document.getElementById('timezoneInput').value = offset;
+
+                        handleInput();
+                        showToast("位置获取成功", "info");
+                    }, (error) => {
+                        showToast("无法获取位置: " + error.message, "error");
+                    });
+                } else {
+                    showToast("浏览器不支持地理定位", "error");
+                }
+            });
+
+            // Realtime Toggle
+            document.getElementById('realTimeCheck').addEventListener('change', (e) => {
+                state.isRealTime = e.target.checked;
+                if (state.isRealTime) {
+                    // Disable manual time inputs
+                    document.getElementById('hourInput').disabled = true;
+                    document.getElementById('minuteInput').disabled = true;
+                    document.getElementById('secondInput').disabled = true;
+                    calculateAll();
+                    realTimeInterval = setInterval(calculateAll, 1000);
+                } else {
+                    document.getElementById('hourInput').disabled = false;
+                    document.getElementById('minuteInput').disabled = false;
+                    document.getElementById('secondInput').disabled = false;
+                    clearInterval(realTimeInterval);
+                }
+            });
+
+            // Resize Listener
+            window.addEventListener('resize', () => {
+                if(chartInstance) chartInstance.resize();
+                drawMainCanvas();
+                drawPseudo3D();
+            });
+
+            // Initial Calc
+            handleInput();
+        }
+
+        function handleInput() {
+            // Read inputs
+            let lat = parseFloat(document.getElementById('latInput').value);
+            const latDir = document.getElementById('latDirBtn').innerText;
+            if (latDir === 'S') lat = -Math.abs(lat);
+            state.lat = lat;
+
+            let lon = parseFloat(document.getElementById('lonInput').value);
+            const lonDir = document.getElementById('lonDirBtn').innerText;
+            if (lonDir === 'W') lon = -Math.abs(lon);
+            state.lon = lon;
+
+            const dateVal = document.getElementById('dateInput').valueAsDate;
+            if (dateVal) state.date = dateVal;
+
+            state.hour = parseInt(document.getElementById('hourInput').value) || 0;
+            state.minute = parseInt(document.getElementById('minuteInput').value) || 0;
+            state.second = parseInt(document.getElementById('secondInput').value) || 0;
+            
+            state.timezone = parseFloat(document.getElementById('timezoneInput').value);
+
+            calculateAll();
+        }
+
+        // Run
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
