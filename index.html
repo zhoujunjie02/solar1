@@ -197,7 +197,7 @@
 </div>
 <div class="bg-slate-800 p-1 rounded-xl shadow-lg border border-slate-700">
 <div class="flex justify-between items-center px-4 py-2 border-b border-slate-700">
-<h3 class="font-semibold text-slate-200"><i class="fa-solid fa-cube mr-2 text-purple-400"></i>实时天球视位</h3>
+<h3 class="font-semibold text-slate-200"><i class="fa-solid fa-cube mr-2 text-purple-400"></i>太阳视运动轨迹</h3>
 </div>
 <div class="canvas-container h-[300px] bg-slate-900 flex justify-center items-center">
 <canvas id="pseudo3DCanvas"></canvas>
@@ -370,9 +370,6 @@
 
         function getSunStatus(alt) {
             if (alt > 0) return '白天';
-            if (alt > -6) return '民用晨昏蒙影';
-            if (alt > -12) return '航海晨昏蒙影';
-            if (alt > -18) return '天文晨昏蒙影';
             return '夜晚';
         }
 
@@ -786,7 +783,7 @@
             });
         }
 
-        // --- 8. Visualization: Pseudo 3D Canvas ---
+        // --- 8. Visualization: Sun Apparent Motion (Pseudo 3D) ---
 
         function drawPseudo3D() {
             const canvas = document.getElementById('pseudo3DCanvas');
@@ -798,71 +795,268 @@
             const w = canvas.width;
             const h = canvas.height;
             const cx = w / 2;
-            const cy = h / 2 + 20; // Shift down slightly
-            const radius = Math.min(w, h) / 2 - 20;
+            const cy = h * 0.72; // Ground plane center, shifted down for sky space
 
             // Clear
             ctx.clearRect(0, 0, w, h);
 
-            // Draw Dome (Compass)
+            // ---- Sky Background Gradient ----
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, cy);
+            skyGrad.addColorStop(0, '#020617');   // Top: very dark slate
+            skyGrad.addColorStop(0.35, '#0f172a'); // Upper: slate-900
+            skyGrad.addColorStop(0.7, '#1e3a8a'); // Mid: blue-900
+            skyGrad.addColorStop(1, '#1e293b');  // Horizon: slate-800
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // ---- Projection Parameters ----
+            // 3D World: X=south(-)to north(+), Y=east(-)to west(+), Z=ground(-)to sky(+)
+            // Observer faces east (looking toward -Y), slightly elevated
+            const groundScale = Math.min(w, h) * 0.38;  // Ground ellipse semi-major axis (left-right)
+            const perspFactor = 0.28;                    // Perspective compression (front-back)
+            const heightFactor = 1.05;                   // Sky dome height scale
+
+            // Helper: spherical (alt, az) -> 3D -> 2D screen projection
+            // az: 0=north, 90=east, 180=south, 270=west (clockwise from north)
+            function sunToScreen(alt, az) {
+                const altRad = alt * Math.PI / 180;
+                const azRad = az * Math.PI / 180;
+                // 3D coordinates: x=east(+), y=north(+), z=up(+)
+                const x = Math.cos(altRad) * Math.sin(azRad);  // East component (az=90 -> +1)
+                const y = Math.cos(altRad) * Math.cos(azRad);  // North component (az=0 -> +1)
+                const z = Math.sin(altRad);                     // Altitude
+                return {
+                    x: cx + y * groundScale,                                    // North right, South left
+                    y: cy + x * groundScale * perspFactor - z * groundScale * heightFactor // East down(front), West up(back), high up
+                };
+            }
+
+            // ---- Ground Plane (Ellipse) ----
             ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#0f172a';
+            ctx.ellipse(cx, cy, groundScale, groundScale * perspFactor, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
             ctx.fill();
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Horizon Line
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, radius, radius * 0.3, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = '#64748b';
-            ctx.stroke();
+            // ---- Ground Grid (Perspective lines) ----
+            // East-West lines (front to back)
+            for (let i = -3; i <= 3; i++) {
+                if (i === 0) continue;
+                const xOff = i * groundScale * 0.3;
+                const lineLen = Math.sqrt(1 - (i * 0.3) ** 2) * groundScale * perspFactor;
+                ctx.beginPath();
+                ctx.moveTo(cx + xOff, cy - lineLen);
+                ctx.lineTo(cx + xOff, cy + lineLen);
+                ctx.strokeStyle = 'rgba(100, 116, 139, 0.12)';
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+            // North-South arcs (parallel to horizon)
+            for (let i = 1; i <= 3; i++) {
+                const ry = i * groundScale * perspFactor * 0.33;
+                const rx = groundScale * Math.sqrt(1 - (i * 0.33) ** 2);
+                if (rx > 0) {
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(100, 116, 139, 0.12)';
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
 
-            // Cardinal Points
+            // ---- Cardinal Direction Labels ----
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '12px Arial';
+            ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('N', cx, cy - radius);
-            ctx.fillText('S', cx, cy + radius * 0.3); // Perspective
-            ctx.fillText('E', cx + radius, cy);
-            ctx.fillText('W', cx - radius, cy);
+            const labelOffset = 22;
+            ctx.fillText('东', cx, cy + groundScale * perspFactor + labelOffset);
+            ctx.fillText('西', cx, cy - groundScale * perspFactor - labelOffset);
+            ctx.fillText('南', cx - groundScale - labelOffset, cy);
+            ctx.fillText('北', cx + groundScale + labelOffset, cy);
 
-            // Draw Sun
-            // Azimuth is angle around center (0 is Top/North)
-            // Altitude is distance from center (0 is edge, 90 is center)
-            // r = radius * (1 - alt/90)
-            
-            const alt = state.results.alt;
-            const az = state.results.az; // 0 = N, 90 = E
-            
-            // Adjust Azimuth for canvas rotation (Canvas 0 is East/Right usually, but we drew N at Top)
-            // Canvas 0 is Right (3 o'clock). 
-            // N is -90deg (Top). E is 0deg. S is 90deg. W is 180deg.
-            // Azimuth: N=0, E=90, S=180, W=270.
-            // Canvas Angle: N=-PI/2, E=0, S=PI/2, W=PI.
-            // Formula: CanvasAngle = (Azimuth - 90) * PI / 180
-            
-            if (alt > -10) {
-                const r = radius * (1 - alt / 90);
-                const rad = (az - 90) * Math.PI / 180;
-                
-                const sx = cx + r * Math.cos(rad);
-                const sy = cy + r * Math.sin(rad) * 0.3; // Flatten Y for perspective
+            // ---- Sky Dome Arc (Horizon to Zenith boundary) ----
+            const domeTopY = cy - groundScale * heightFactor;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy - groundScale * perspFactor * 0.5, groundScale, groundScale * (heightFactor + perspFactor * 0.5), 0, Math.PI, 0);
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
 
-                // Draw Sun
-                ctx.beginPath();
-                ctx.arc(sx, sy, 8, 0, Math.PI * 2);
-                ctx.fillStyle = '#facc15';
-                ctx.fill();
-                
-                // Glow
-                ctx.beginPath();
-                ctx.arc(sx, sy, 15, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
-                ctx.fill();
+            // ---- Calculate Full-Day Sun Path ----
+            const { lat, lon, date, timezone } = state;
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+
+            const pathPoints = [];
+            for (let hour = 0; hour <= 24; hour += 0.25) {
+                const jd = getJulianDate(year, month, day, hour, 0, 0, timezone);
+                const T = getJulianCentury(jd);
+                const L0 = getSolarGeomMeanLongitude(T);
+                const M = getSolarGeomMeanAnomaly(T);
+                const e = getEarthEccentricity(T);
+                const C = getSunEquationOfCenter(T, M);
+                const sunTrueLong = getSolarTrueLongitude(L0, C);
+                const obliq = getObliquityCorrection(T);
+                const dec = getSolarDeclination(obliq, sunTrueLong);
+                const eot = getEquationOfTime(T, L0, M, e, obliq);
+                const ha = getHourAngle(hour, 0, 0, lon, timezone, eot);
+                const alt = getSolarElevation(lat, dec, ha);
+                const az = getSolarAzimuth(lat, dec, ha, alt);
+
+                if (alt > -12) {
+                    const pos = sunToScreen(alt, az);
+                    pathPoints.push({ x: pos.x, y: pos.y, alt, hour });
+                }
             }
+
+            // ---- Draw Sun Path: Daytime (solid) ----
+            if (pathPoints.length > 1) {
+                ctx.beginPath();
+                let drawing = false;
+                for (let i = 0; i < pathPoints.length; i++) {
+                    const p = pathPoints[i];
+                    if (p.alt >= -0.5) {
+                        if (!drawing) {
+                            ctx.moveTo(p.x, p.y);
+                            drawing = true;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    } else {
+                        drawing = false;
+                    }
+                }
+                ctx.strokeStyle = 'rgba(250, 204, 21, 0.85)'; // yellow-400
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+
+                // Twilight zone (-6° < alt < 0°): dashed orange
+                ctx.beginPath();
+                drawing = false;
+                for (let i = 0; i < pathPoints.length; i++) {
+                    const p = pathPoints[i];
+                    if (p.alt > -6 && p.alt < 0) {
+                        if (!drawing) {
+                            ctx.moveTo(p.x, p.y);
+                            drawing = true;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    } else {
+                        drawing = false;
+                    }
+                }
+                ctx.strokeStyle = 'rgba(251, 146, 60, 0.5)'; // orange-400
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // ---- Draw Current Sun Position ----
+            const curAlt = state.results.alt;
+            const curAz = state.results.az;
+            const curPos = sunToScreen(curAlt, curAz);
+
+            if (curAlt > -12) {
+                // Projection line to ground
+                const groundPos = sunToScreen(0, curAz);
+                ctx.beginPath();
+                ctx.setLineDash([3, 3]);
+                ctx.moveTo(curPos.x, curPos.y);
+                ctx.lineTo(groundPos.x, groundPos.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Sun glow
+                const glowR = curAlt > 0 ? 20 : 14;
+                const glow = ctx.createRadialGradient(curPos.x, curPos.y, 2, curPos.x, curPos.y, glowR);
+                glow.addColorStop(0, 'rgba(250, 204, 21, 1)');
+                glow.addColorStop(0.4, 'rgba(250, 204, 21, 0.5)');
+                glow.addColorStop(1, 'rgba(250, 204, 21, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(curPos.x, curPos.y, glowR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Sun body
+                ctx.beginPath();
+                ctx.arc(curPos.x, curPos.y, 5, 0, Math.PI * 2);
+                if (curAlt > 0) {
+                    ctx.fillStyle = '#fef08a'; // yellow-200 core
+                    ctx.fill();
+                } else {
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
+                    ctx.fill();
+                }
+            }
+
+            // ---- Time Markers on Horizon ----
+            function drawTimeMarker(timeStr, hour, minute, label) {
+                if (!timeStr || timeStr === '--' || timeStr === '--:--') return;
+                const jd = getJulianDate(year, month, day, hour, minute, 0, timezone);
+                const T = getJulianCentury(jd);
+                const L0 = getSolarGeomMeanLongitude(T);
+                const M = getSolarGeomMeanAnomaly(T);
+                const e = getEarthEccentricity(T);
+                const C = getSunEquationOfCenter(T, M);
+                const sunTrueLong = getSolarTrueLongitude(L0, C);
+                const obliq = getObliquityCorrection(T);
+                const dec = getSolarDeclination(obliq, sunTrueLong);
+                const eot = getEquationOfTime(T, L0, M, e, obliq);
+                const ha = getHourAngle(hour, minute, 0, lon, timezone, eot);
+                const alt = getSolarElevation(lat, dec, ha);
+                const az = getSolarAzimuth(lat, dec, ha, alt);
+                const pos = sunToScreen(Math.max(0, alt), az);
+
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                if (label === 'sunrise') {
+                    ctx.fillStyle = '#fb923c';
+                    ctx.fillText(timeStr, pos.x, pos.y + 18);
+                } else if (label === 'sunset') {
+                    ctx.fillStyle = '#fb923c';
+                    ctx.fillText(timeStr, pos.x, pos.y - 14);
+                } else if (label === 'noon') {
+                    ctx.fillStyle = '#facc15';
+                    ctx.font = 'bold 11px Arial';
+                    ctx.fillText(timeStr, pos.x, pos.y - 16);
+                }
+            }
+
+            // Parse and draw markers
+            if (state.results.sunrise && state.results.sunrise.includes(':')) {
+                const [rh, rm] = state.results.sunrise.split(':').map(Number);
+                drawTimeMarker(state.results.sunrise, rh, rm, 'sunrise');
+            }
+            if (state.results.sunset && state.results.sunset.includes(':')) {
+                const [sh, sm] = state.results.sunset.split(':').map(Number);
+                drawTimeMarker(state.results.sunset, sh, sm, 'sunset');
+            }
+            if (state.results.noon && state.results.noon.includes(':')) {
+                const [nh, nm] = state.results.noon.split(':').map(Number);
+                drawTimeMarker(state.results.noon, nh, nm, 'noon');
+            }
+
+            // ---- Current Status Label (Top-left inside canvas) ----
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+            ctx.font = '11px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`高度: ${curAlt.toFixed(1)}°  方位: ${curAz.toFixed(1)}°`, 10, 10);
         }
 
         // --- 9. Initialization & Event Listeners ---
